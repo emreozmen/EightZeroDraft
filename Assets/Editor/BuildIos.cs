@@ -56,7 +56,7 @@ public sealed class IosBuildSettings : IPreprocessBuildWithReport
         PlayerSettings.bundleVersion = GetAppVersion();
         PlayerSettings.iOS.buildNumber = GetBuildNumber();
         PlayerSettings.iOS.requiresFullScreen = true;
-        PlayerSettings.SplashScreen.show = true;
+        PlayerSettings.SplashScreen.show = false;
         PlayerSettings.SplashScreen.showUnityLogo = false;
         PlayerSettings.SplashScreen.backgroundColor = new Color32(209, 212, 209, 255);
         ApplyAppIcons();

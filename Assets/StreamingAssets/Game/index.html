@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#3CAC3B">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Draft Game">
@@ -75,18 +75,18 @@
       box-shadow: 0 18px 50px var(--soft-shadow);
     }
     header {
-      padding: max(14px, env(safe-area-inset-top)) 14px 8px;
-      display: flex;
+      padding: calc(env(safe-area-inset-top) + 10px) 14px 8px;
+      display: grid;
+      grid-template-columns: minmax(46px, 1fr) auto auto auto;
       align-items: center;
       gap: 7px;
       min-width: 0;
     }
     .brand {
       min-width: 0;
-      flex: 1 1 auto;
       font-weight: 950;
       letter-spacing: .08em;
-      font-size: 24px;
+      font-size: 22px;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -96,7 +96,7 @@
       font-style: normal;
     }
     .pill, .lang, .theme-toggle {
-      flex: 0 0 auto;
+      min-width: 0;
       border: 1px solid var(--soft-border);
       color: var(--text-muted-soft);
       border-radius: 999px;
@@ -105,7 +105,12 @@
       font-weight: 850;
       background: var(--surface);
     }
-    .pill { margin-left: auto; color: var(--text-main); }
+    .pill {
+      min-width: 72px;
+      color: var(--text-main);
+      text-align: center;
+      white-space: nowrap;
+    }
     .lang, .theme-toggle { cursor: pointer; }
     .hud {
       display: grid;
@@ -619,7 +624,8 @@
     }
     .past-match {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 96px 24px;
+      grid-template-columns: minmax(0, 1fr) 96px;
+      width: 100%;
       gap: 10px;
       align-items: center;
       background: var(--surface);
@@ -629,6 +635,8 @@
       color: var(--text-muted-soft);
       font-size: 12px;
       font-weight: 850;
+      text-align: left;
+      cursor: pointer;
     }
     .past-match b {
       display: block;
@@ -658,24 +666,28 @@
       font-size: 11px;
       letter-spacing: .08em;
     }
-    .past-score .mark {
-      width: 24px;
-      height: 24px;
-      display: grid;
-      place-items: center;
-      border-radius: 999px;
-      text-align: center;
-      justify-self: end;
-      font-size: 17px;
-      font-weight: 950;
-      line-height: 1;
-    }
     .past-score.loss { color: var(--red); }
     .past-score.draw { color: #c99a08; }
     .past-score.win { color: var(--lime); }
-    .mark.loss { background: rgba(230,29,37,.12); color: var(--red); }
-    .mark.draw { background: rgba(201,154,8,.13); color: #c99a08; }
-    .mark.win { background: rgba(60,172,59,.13); color: var(--lime); }
+    .past-details {
+      margin: -2px 8px 6px;
+      padding: 8px 12px 10px;
+      border-left: 3px solid var(--lime);
+      border-radius: 0 0 14px 14px;
+      background: rgba(255,255,255,.36);
+    }
+    body.theme-dark .past-details {
+      background: rgba(0,0,0,.16);
+    }
+    .past-details .event {
+      min-height: 22px;
+      padding: 3px 0;
+    }
+    .past-details .empty {
+      color: var(--text-muted-soft);
+      font-size: 12px;
+      font-weight: 850;
+    }
     .group-table {
       background: var(--surface-strong);
       border: 1px solid var(--soft-border);
@@ -864,23 +876,27 @@
     }
     @media (max-width: 390px) {
       header {
+        grid-template-columns: minmax(38px, 1fr) auto auto auto;
         padding-left: 12px;
         padding-right: 12px;
-        gap: 6px;
+        gap: 5px;
       }
       .brand {
-        font-size: 20px;
-        letter-spacing: .05em;
+        font-size: 18px;
+        letter-spacing: .03em;
       }
       .brand em {
         display: none;
       }
       .pill, .lang, .theme-toggle {
-        padding: 7px 8px;
+        padding: 7px 7px;
         font-size: 10px;
       }
+      .pill {
+        min-width: 68px;
+      }
       .theme-toggle {
-        min-width: 48px;
+        min-width: 46px;
       }
     }
   </style>
@@ -1417,7 +1433,7 @@
         button.disabled = disabled;
         button.innerHTML = `
           <span class="num">${player.shirt}</span>
-          <span class="who"><b>${player.name}</b><span>${player.positions.join(" / ")}</span></span>
+          <span class="who"><b>${cleanPlayerName(player.name)}</b><span>${player.positions.join(" / ")}</span></span>
           <span class="tag">${disabled ? t("closed") : `<b>${rating}</b><small>${open.join("/")}</small>`}</span>
         `;
         button.addEventListener("click", () => choosePlayer(squad, player));
@@ -1436,7 +1452,7 @@
       pendingPlayer = player;
       pendingSquad = squad;
       closeSheet();
-      hint.textContent = t("placeHint")(player.name);
+      hint.textContent = t("placeHint")(cleanPlayerName(player.name));
       render();
     }
 
@@ -1446,7 +1462,7 @@
       if (!slot || slot.player || !pendingPlayer.positions.includes(slot.code)) return;
       slot.player = { ...pendingPlayer, sourceSquad: pendingSquad.id, sourceStrength: pendingSquad.strength };
       usedPlayers.add(playerKey(pendingSquad, pendingPlayer));
-      const placedName = pendingPlayer.name;
+      const placedName = cleanPlayerName(pendingPlayer.name);
       const placedCode = slot.code;
       clearPending();
       render();
@@ -1491,8 +1507,44 @@
     }
 
     function shortName(name) {
+      name = cleanPlayerName(name);
       const parts = name.split(" ");
       return parts.length > 1 ? parts[parts.length - 1] : name;
+    }
+
+    function cleanPlayerName(name) {
+      if (!name) return "";
+      const raw = String(name).replace(/\s+/g, " ").trim();
+      const upper = raw.toUpperCase();
+      const aliasMap = [
+        ["VINICIUS JUNIOR", "Vinicius Junior"],
+        ["VINI JR", "Vinicius Junior"],
+        ["MARQUINHOS", "Marquinhos"],
+        ["ALEX SANDRO", "Alex Sandro"],
+        ["RAPHINHA", "Raphinha"],
+        ["CASEMIRO", "Casemiro"],
+        ["LEO PEREIRA", "Leo Pereira"],
+        ["LUIZ HENRIQUE", "Luiz Henrique"],
+        ["MARTINELLI", "Martinelli"],
+        ["FABINHO", "Fabinho"],
+        ["PAQUETA", "Paqueta"],
+        ["IBANEZ", "Ibanez"]
+      ];
+      const alias = aliasMap.find(([key]) => upper.includes(key));
+      if (alias) return alias[1];
+
+      const cleaned = [];
+      raw.split(" ").forEach(token => {
+        const previous = cleaned[cleaned.length - 1];
+        if (!previous || normalizeToken(previous) !== normalizeToken(token)) {
+          cleaned.push(token);
+        }
+      });
+      return cleaned.join(" ");
+    }
+
+    function normalizeToken(value) {
+      return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
     }
 
     function finishDraft() {
@@ -1645,7 +1697,7 @@
       if (eventLog.querySelector(".pending")) eventLog.innerHTML = "";
       const row = document.createElement("div");
       row.className = eventClass(event);
-      row.innerHTML = `<span class="minute">${event.minute}'</span><span class="ball">${eventIcon(event)}</span><span class="scorer">${event.scorer}</span>`;
+      row.innerHTML = eventHtml(event);
       eventLog.prepend(row);
     }
 
@@ -1658,6 +1710,11 @@
 
     function eventIcon(event) {
       return "";
+    }
+
+    function eventHtml(event) {
+      const minute = String(event.minute).toUpperCase() === "PEN" ? "PEN" : `${event.minute}'`;
+      return `<span class="minute">${minute}</span><span class="ball">${eventIcon(event)}</span><span class="scorer">${cleanPlayerName(event.scorer)}</span>`;
     }
 
     function finishMatch(match, scheduleItem) {
@@ -1684,7 +1741,9 @@
         score: scoreText,
         won,
         draw,
-        points: groupPoints
+        points: groupPoints,
+        events: match.events.map(event => ({ ...event, scorer: cleanPlayerName(event.scorer) })),
+        expanded: false
       });
       const groupDone = runState.current === 2;
       if (runState.current < 3) {
@@ -1766,6 +1825,7 @@
     }
 
     function recordGoal(player, team) {
+      player = cleanPlayerName(player);
       const key = `${player}|${team}`;
       const item = runState.scorers[key] || { player, team, goals: 0 };
       item.goals += 1;
@@ -1807,20 +1867,45 @@
       const won = pens.home > pens.away;
       const row = document.createElement("div");
       row.className = "event drama";
-      row.innerHTML = `<span class="minute">PEN</span><span class="ball"></span><span class="scorer">${won ? "Shootout hero" : "Shootout heartbreak"} ${pens.home}-${pens.away}</span>`;
+      const penaltyEvent = { type: "drama", side: won ? "home" : "away", minute: "PEN", scorer: `${won ? "Shootout hero" : "Shootout heartbreak"} ${pens.home}-${pens.away}` };
+      row.innerHTML = eventHtml(penaltyEvent);
       eventLog.prepend(row);
+      match.events.push(penaltyEvent);
       finalizeMatch(match, scheduleItem, won, false, `${match.home}-${match.away} (${pens.home}-${pens.away}p)`);
     }
 
     function renderRunHistory() {
-      const matches = runState.history.map(item => `
-        <div class="past-match">
-          <span><span class="phase">${item.phase}</span><b>vs ${item.opponent}</b></span>
-          <span class="past-score ${scoreClass(item)}">${formatScore(item.score)}</span>
-          <span class="mark ${scoreClass(item)}">${resultMark(item)}</span>
+      const matches = runState.history.map((item, index) => `
+        <div class="past-entry">
+          <button class="past-match" type="button" data-match-index="${index}">
+            <span><span class="phase">${item.phase}</span><b>vs ${item.opponent}</b></span>
+            <span class="past-score ${scoreClass(item)}">${formatScore(item.score)}</span>
+          </button>
+          ${item.expanded ? renderPastEvents(item) : ""}
         </div>
       `).join("");
       runList.innerHTML = `${runState.groupStandingsVisible ? renderGroupStandings() : ""}${matches}`;
+      runList.querySelectorAll("[data-match-index]").forEach(button => {
+        button.addEventListener("click", () => {
+          const item = runState.history[Number(button.dataset.matchIndex)];
+          item.expanded = !item.expanded;
+          renderRunHistory();
+        });
+      });
+    }
+
+    function renderPastEvents(item) {
+      const events = [...(item.events || [])].sort((a, b) => eventMinuteValue(a) - eventMinuteValue(b));
+      if (!events.length) return `<div class="past-details"><div class="empty">${t("waitingEvent")}</div></div>`;
+      return `
+        <div class="past-details">
+          ${events.map(event => `<div class="${eventClass(event)}">${eventHtml(event)}</div>`).join("")}
+        </div>
+      `;
+    }
+
+    function eventMinuteValue(event) {
+      return String(event.minute).toUpperCase() === "PEN" ? 130 : Number(event.minute) || 0;
     }
 
     function renderGroupStandings() {
@@ -1847,12 +1932,6 @@
       `;
     }
 
-    function resultMark(item) {
-      if (item.won) return "✓";
-      if (item.draw) return "–";
-      return "×";
-    }
-
     function formatScore(score) {
       const match = String(score).match(/^(.+?)\s+\((.+)\)$/);
       if (!match) return `<span class="score-text">${score}</span>`;
@@ -1869,7 +1948,7 @@
       runState.ended = true;
       runState.wonCup = wonCup;
       nextMatchBtn.disabled = true;
-      finalTitle.textContent = `${runState.wins}/8`;
+      finalTitle.textContent = recordLabel(runRecord());
       const row = document.createElement("div");
       row.className = "event pending";
       row.textContent = message;
@@ -1889,7 +1968,7 @@
       const imageUrl = createShareCard();
       currentShareImageUrl = imageUrl;
       sharePreview.innerHTML = `<img src="${imageUrl}" alt="8-0 World Cup Draft result card">`;
-      currentShareText = `8-0 World Cup Draft Game: ${record.wins}-${record.nonWins}. ${rank.title}.`;
+      currentShareText = `8-0 World Cup Draft Game: ${recordLabel(record)} W-D-L. ${rank.title}.`;
       twitterShare.onclick = () => shareCard("twitter");
       whatsappShare.onclick = () => shareCard("whatsapp");
       instagramShare.onclick = () => shareCard("instagram");
@@ -1970,7 +2049,7 @@
       x.fillStyle = "#FFD84D";
       x.font = "900 118px Arial";
       const record = runRecord();
-      x.fillText(`${record.wins}-${record.nonWins}`, 450, 360);
+      x.fillText(recordLabel(record), 450, 360);
 
       const rank = rankTitle(record);
       x.fillStyle = runState.wonCup ? "#A7F044" : "#E61D25";
@@ -2066,7 +2145,11 @@
       const played = runState.history.length;
       const draws = runState.history.filter(item => item.draw).length;
       const losses = runState.history.filter(item => !item.won && !item.draw).length;
-      return { wins: runState.wins, draws, losses, nonWins: Math.max(0, played - runState.wins), played };
+      return { wins: runState.wins, draws, losses, played };
+    }
+
+    function recordLabel(record) {
+      return `${record.wins}-${record.draws}-${record.losses}`;
     }
 
     function rankTitle(record) {
