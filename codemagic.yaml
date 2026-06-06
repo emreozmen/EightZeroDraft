@@ -1,0 +1,44 @@
+workflows:
+  publish-unity-cloud-ipa:
+    name: Publish Unity Cloud IPA
+    max_build_duration: 30
+    instance_type: mac_mini_m2
+
+    environment:
+      groups:
+        - appstore_credentials
+      vars:
+        IPA_DIR: build/ios/ipa
+        IPA_NAME: EightZeroDraft.ipa
+
+    scripts:
+      - name: Prepare IPA artifact
+        script: |
+          set -e
+          mkdir -p "$IPA_DIR"
+
+          if [ -n "$UNITY_CLOUD_IPA_URL" ]; then
+            echo "Downloading IPA from UNITY_CLOUD_IPA_URL..."
+            curl -L "$UNITY_CLOUD_IPA_URL" -o "$IPA_DIR/$IPA_NAME"
+          elif ls upload/*.ipa >/dev/null 2>&1; then
+            echo "Using IPA from upload/ folder..."
+            cp upload/*.ipa "$IPA_DIR/$IPA_NAME"
+          else
+            echo "No IPA found."
+            echo "Set UNITY_CLOUD_IPA_URL in Codemagic environment variables,"
+            echo "or commit the IPA to upload/*.ipa for a one-off upload."
+            exit 1
+          fi
+
+          ls -lh "$IPA_DIR"
+
+    artifacts:
+      - build/ios/ipa/*.ipa
+
+    publishing:
+      app_store_connect:
+        api_key: $APP_STORE_CONNECT_PRIVATE_KEY
+        key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
+        issuer_id: $APP_STORE_CONNECT_ISSUER_ID
+        submit_to_testflight: true
+        expire_build_submitted_for_review: false

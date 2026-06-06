@@ -71,6 +71,10 @@ ExportedObj/
 # Unity3D generated file on crash reports
 sysinfo.txt
 
+# Optional one-off Codemagic IPA upload folder. Remove this line temporarily
+# only if you intentionally want to commit an IPA for a single upload.
+/upload/
+
 # Mono auto generated files
 mono_crash.*
 
