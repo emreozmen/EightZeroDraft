@@ -1,4 +1,4 @@
-const CACHE_NAME = "8-0-world-cup-draft-v1";
+const CACHE_NAME = "8-0-world-cup-draft-v2";
 const ASSETS = [
   "./",
   "./index.html",

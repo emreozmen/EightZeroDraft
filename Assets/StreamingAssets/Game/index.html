@@ -1254,6 +1254,8 @@
     let theme = "light";
     let currentShareImageUrl = "";
     let currentShareText = "";
+    const saveKey = "eightZeroDraftState.v1";
+    const shareUrl = "https://emreozmen.github.io/EightZeroDraft/";
 
     const pitch = document.getElementById("pitch");
     const pickCount = document.getElementById("pickCount");
@@ -1339,9 +1341,12 @@
       hint.textContent = t("initialHint");
       result.classList.remove("show");
       championModal.classList.remove("show");
-      coinBtn.disabled = false;
+      overlay.classList.remove("show");
+      sheet.classList.remove("show");
+      updateCoinState();
       render();
       applyLanguage();
+      saveDraftState();
     }
 
     function buildSlots(formation) {
@@ -1371,8 +1376,14 @@
     }
 
     function drawCoin() {
+      if (phase === "squad" && currentSquad) {
+        openSheet(currentSquad);
+        updateCoinState();
+        return;
+      }
+      if (pendingPlayer) return;
       coinBtn.disabled = true;
-      closeSheet();
+      closeSheet(false);
       clearPending();
 
       setTimeout(() => {
@@ -1383,8 +1394,9 @@
           formationPill.textContent = selectedFormation.name;
           phase = "manager";
           hint.textContent = t("managerHint");
-          coinBtn.disabled = false;
+          updateCoinState();
           render();
+          saveDraftState();
           return;
         }
 
@@ -1393,28 +1405,29 @@
           managerTitle.textContent = selectedManager.name;
           phase = "squad";
           hint.textContent = t("squadHint");
-          coinBtn.disabled = false;
+          updateCoinState();
           render();
+          saveDraftState();
           return;
         }
 
         currentSquad = findPlayableSquad();
         if (!currentSquad) {
           hint.textContent = t("noSquads");
-          coinBtn.disabled = false;
+          updateCoinState();
           return;
         }
         drawTitle.textContent = `${currentSquad.country} ${currentSquad.year}`;
         hint.textContent = lang === "tr" ? "Önce oyuncuyu seç, sonra sahadaki mevkiini seç." : "Pick a player, then choose their exact pitch slot.";
         openSheet(currentSquad);
-        coinBtn.disabled = false;
         render();
+        saveDraftState();
       }, 280);
     }
 
     function findPlayableSquad() {
       const playable = squads.filter(squad =>
-        squad.players.some(player => !usedPlayers.has(playerKey(squad, player)) && openPositionsFor(player).length)
+        squad.players.some(player => !isPlayerUsed(squad, player) && openPositionsFor(player).length)
       );
       if (!playable.length) return null;
       return weightedRandom(playable, squadWeight);
@@ -1426,7 +1439,7 @@
       squad.players.forEach(player => {
         const key = playerKey(squad, player);
         const open = openPositionsFor(player);
-        const disabled = usedPlayers.has(key) || open.length === 0;
+        const disabled = isPlayerUsed(squad, player) || open.length === 0;
         const rating = playerRating(squad, player);
         const button = document.createElement("button");
         button.className = `player${rating >= 86 ? " star" : ""}`;
@@ -1441,42 +1454,67 @@
       });
       overlay.classList.add("show");
       sheet.classList.add("show");
+      updateCoinState();
     }
 
-    function closeSheet() {
+    function closeSheet(allowClose = true) {
+      if (!allowClose && currentSquad && !pendingPlayer) return;
       overlay.classList.remove("show");
       sheet.classList.remove("show");
+      updateCoinState();
     }
 
     function choosePlayer(squad, player) {
+      if (isPlayerUsed(squad, player)) return;
       pendingPlayer = player;
       pendingSquad = squad;
-      closeSheet();
+      closeSheet(true);
       hint.textContent = t("placeHint")(cleanPlayerName(player.name));
+      updateCoinState();
       render();
+      saveDraftState();
     }
 
     function placePending(slotIndex) {
       if (!pendingPlayer || !pendingSquad) return;
       const slot = slots.find(item => item.index === slotIndex);
-      if (!slot || slot.player || !pendingPlayer.positions.includes(slot.code)) return;
+      if (!slot || slot.player || !pendingPlayer.positions.includes(slot.code) || isPlayerUsed(pendingSquad, pendingPlayer)) return;
       slot.player = { ...pendingPlayer, sourceSquad: pendingSquad.id, sourceStrength: pendingSquad.strength };
       usedPlayers.add(playerKey(pendingSquad, pendingPlayer));
       const placedName = cleanPlayerName(pendingPlayer.name);
       const placedCode = slot.code;
+      currentSquad = null;
       clearPending();
+      updateCoinState();
       render();
 
       if (filledSlots().length === slots.length) {
         finishDraft();
       } else {
         hint.textContent = t("pickedHint")(placedName, placedCode);
+        saveDraftState();
       }
     }
 
     function clearPending() {
       pendingPlayer = null;
       pendingSquad = null;
+    }
+
+    function updateCoinState() {
+      coinBtn.disabled = !!pendingPlayer || (phase === "squad" && !!currentSquad);
+    }
+
+    function playerNameKey(player) {
+      return normalizeToken(cleanPlayerName(player.name));
+    }
+
+    function usedPlayerNames() {
+      return new Set(filledSlots().map(slot => playerNameKey(slot.player)));
+    }
+
+    function isPlayerUsed(squad, player) {
+      return usedPlayers.has(playerKey(squad, player)) || usedPlayerNames().has(playerNameKey(player));
     }
 
     function render() {
@@ -2152,6 +2190,63 @@
       return `${record.wins}-${record.draws}-${record.losses}`;
     }
 
+    function saveDraftState() {
+      if (!phase || runState?.ended) return;
+      const payload = {
+        phase,
+        lang,
+        theme,
+        selectedFormation: selectedFormation?.name || null,
+        selectedManager: selectedManager ? { id: selectedManager.id || null, name: selectedManager.name, bonus: selectedManager.bonus } : null,
+        currentSquad: currentSquad?.id || null,
+        slots,
+        usedPlayers: [...usedPlayers]
+      };
+      localStorage.setItem(saveKey, JSON.stringify(payload));
+    }
+
+    function restoreDraftState() {
+      try {
+        const raw = localStorage.getItem(saveKey);
+        if (!raw) return false;
+        const payload = JSON.parse(raw);
+        const formation = formations.find(item => item.name === payload.selectedFormation);
+
+        phase = payload.phase || "formation";
+        lang = payload.lang === "tr" ? "tr" : "en";
+        theme = payload.theme === "dark" ? "dark" : "light";
+        selectedFormation = formation || null;
+        selectedManager = payload.selectedManager || null;
+        slots = Array.isArray(payload.slots)
+          ? payload.slots.map((slot, index) => ({ ...slot, index }))
+          : (selectedFormation ? buildSlots(selectedFormation) : []);
+        usedPlayers = new Set(Array.isArray(payload.usedPlayers) ? payload.usedPlayers : []);
+        currentSquad = payload.currentSquad ? squads.find(squad => squad.id === payload.currentSquad) || null : null;
+        pendingPlayer = null;
+        pendingSquad = null;
+        runState = null;
+
+        document.body.classList.toggle("theme-dark", theme === "dark");
+        drawTitle.textContent = currentSquad ? `${currentSquad.country} ${currentSquad.year}` : t("initialDraw");
+        formationTitle.textContent = selectedFormation ? selectedFormation.name : t("initialFormation");
+        formationPill.textContent = selectedFormation ? selectedFormation.name : "-";
+        managerTitle.textContent = selectedManager ? selectedManager.name : t("initialManager");
+        hint.textContent = currentSquad
+          ? (lang === "tr" ? "Bu kadrodan bir oyuncu seçmeden yeni yazı-tura atamazsın." : "Pick from this squad before flipping again.")
+          : t(phase === "manager" ? "managerHint" : phase === "squad" ? "squadHint" : "initialHint");
+        result.classList.remove("show");
+        championModal.classList.remove("show");
+        render();
+        applyLanguage();
+        if (currentSquad) openSheet(currentSquad);
+        updateCoinState();
+        return true;
+      } catch (error) {
+        localStorage.removeItem(saveKey);
+        return false;
+      }
+    }
+
     function rankTitle(record) {
       const last = runState?.history?.[runState.history.length - 1];
       if (runState?.wonCup) return { title: "World Champion", subtitle: "Congratulations, you won the World Cup." };
@@ -2164,7 +2259,22 @@
     async function shareCard(platform) {
       if (!currentShareImageUrl) return;
       const encodedText = encodeURIComponent(currentShareText);
-      const encodedUrl = encodeURIComponent("https://8-0-game.local");
+      const encodedUrl = encodeURIComponent(shareUrl);
+      const file = await dataUrlToFile(currentShareImageUrl, "8-0-world-cup-draft-card.png");
+      if (navigator.canShare && navigator.canShare({ files: [file] }) && navigator.share) {
+        try {
+          await navigator.share({
+            title: "8-0 World Cup Draft Game",
+            text: `${currentShareText} ${shareUrl}`,
+            url: shareUrl,
+            files: [file]
+          });
+          return;
+        } catch (error) {
+          if (error && error.name === "AbortError") return;
+        }
+      }
+
       if (platform === "twitter") {
         openExternalUrl(`twitter://post?message=${encodedText}%20${encodedUrl}`, `https://twitter.com/intent/tweet?text=${encodedText}&url=${encodedUrl}`);
         return;
@@ -2172,20 +2282,6 @@
       if (platform === "whatsapp") {
         openExternalUrl(`whatsapp://send?text=${encodedText}%20${encodedUrl}`, `https://api.whatsapp.com/send?text=${encodedText}%20${encodedUrl}`);
         return;
-      }
-
-      const file = await dataUrlToFile(currentShareImageUrl, "8-0-world-cup-draft-card.png");
-      if (navigator.canShare && navigator.canShare({ files: [file] }) && navigator.share) {
-        try {
-          await navigator.share({
-            title: "8-0 World Cup Draft Game",
-            text: currentShareText,
-            files: [file]
-          });
-          return;
-        } catch (error) {
-          if (error && error.name === "AbortError") return;
-        }
       }
 
       downloadShareCard(currentShareImageUrl, platform);
@@ -2349,7 +2445,7 @@
     }
 
     coinBtn.addEventListener("click", drawCoin);
-    overlay.addEventListener("click", closeSheet);
+    overlay.addEventListener("click", () => closeSheet(false));
     nextMatchBtn.addEventListener("click", playCurrentMatch);
     restartBtn.addEventListener("click", reset);
     modalRestartBtn.addEventListener("click", reset);
@@ -2358,13 +2454,15 @@
       lang = lang === "en" ? "tr" : "en";
       applyLanguage();
       render();
+      saveDraftState();
     });
     themeBtn.addEventListener("click", () => {
       theme = theme === "light" ? "dark" : "light";
       document.body.classList.toggle("theme-dark", theme === "dark");
       applyLanguage();
+      saveDraftState();
     });
-    reset();
+    if (!restoreDraftState()) reset();
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
         navigator.serviceWorker.register("./sw.js").catch(() => {});

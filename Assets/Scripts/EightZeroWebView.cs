@@ -31,14 +31,6 @@ public sealed class EightZeroWebView : MonoBehaviour
         StartCoroutine(OpenGameWhenReady());
     }
 
-    private void OnApplicationPause(bool paused)
-    {
-        if (!paused)
-        {
-            StartCoroutine(OpenGameWhenReady());
-        }
-    }
-
     private void OnDestroy()
     {
 #if UNITY_IOS && !UNITY_EDITOR
