@@ -1,0 +1,26 @@
+{
+  "name": "8-0 World Cup Draft Game",
+  "short_name": "8-0 Draft",
+  "description": "Build a World Cup draft XI and try to win eight straight matches.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#D1D4D1",
+  "theme_color": "#3CAC3B",
+  "categories": ["games", "sports"],
+  "icons": [
+    {
+      "src": "assets/app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "assets/world-cup-trophy.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
