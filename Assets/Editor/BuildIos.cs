@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using UnityEditor;
 using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
@@ -35,6 +36,8 @@ public sealed class IosBuildSettings : IPreprocessBuildWithReport
 {
     private const string BundleId = "com.eightzero.worldcupdraft";
     private const string DefaultAppVersion = "1.0";
+    private const string ProductName = "Draft Game";
+    private const string AppIconPath = "Assets/AppIcon/AppIcon1024.png";
 
     public int callbackOrder => -1000;
 
@@ -49,13 +52,35 @@ public sealed class IosBuildSettings : IPreprocessBuildWithReport
     public static void Apply()
     {
         PlayerSettings.SetApplicationIdentifier(NamedBuildTarget.iOS, BundleId);
+        PlayerSettings.productName = ProductName;
         PlayerSettings.bundleVersion = GetAppVersion();
         PlayerSettings.iOS.buildNumber = GetBuildNumber();
         PlayerSettings.iOS.requiresFullScreen = true;
+        PlayerSettings.SplashScreen.show = true;
+        PlayerSettings.SplashScreen.showUnityLogo = false;
+        PlayerSettings.SplashScreen.backgroundColor = new Color32(209, 212, 209, 255);
+        ApplyAppIcons();
 
         Debug.Log(
-            $"8-0 Draft iOS settings: bundle={BundleId}, version={PlayerSettings.bundleVersion}, build={PlayerSettings.iOS.buildNumber}"
+            $"8-0 Draft iOS settings: product={ProductName}, bundle={BundleId}, version={PlayerSettings.bundleVersion}, build={PlayerSettings.iOS.buildNumber}"
         );
+    }
+
+    private static void ApplyAppIcons()
+    {
+        var icon = AssetDatabase.LoadAssetAtPath<Texture2D>(AppIconPath);
+        if (icon == null)
+        {
+            throw new FileNotFoundException("Missing iOS app icon texture.", AppIconPath);
+        }
+
+        var sizes = PlayerSettings.GetIconSizes(NamedBuildTarget.iOS, IconKind.Application);
+        if (sizes.Length == 0)
+        {
+            return;
+        }
+
+        PlayerSettings.SetIcons(NamedBuildTarget.iOS, sizes.Select(_ => icon).ToArray(), IconKind.Application);
     }
 
     private static string GetAppVersion()

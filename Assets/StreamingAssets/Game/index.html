@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#3CAC3B">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-title" content="8-0 Draft">
+  <meta name="apple-mobile-web-app-title" content="Draft Game">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="description" content="Build a World Cup draft XI and try to win eight straight matches.">
@@ -75,23 +75,33 @@
       box-shadow: 0 18px 50px var(--soft-shadow);
     }
     header {
-      padding: 14px 16px 8px;
+      padding: max(14px, env(safe-area-inset-top)) 14px 8px;
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 7px;
+      min-width: 0;
     }
     .brand {
+      min-width: 0;
+      flex: 1 1 auto;
       font-weight: 950;
       letter-spacing: .08em;
-      font-size: 25px;
+      font-size: 24px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     .brand span { color: var(--amber); }
+    .brand em {
+      font-style: normal;
+    }
     .pill, .lang, .theme-toggle {
+      flex: 0 0 auto;
       border: 1px solid var(--soft-border);
       color: var(--text-muted-soft);
       border-radius: 999px;
-      padding: 8px 10px;
-      font-size: 12px;
+      padding: 8px 9px;
+      font-size: 11px;
       font-weight: 850;
       background: var(--surface);
     }
@@ -852,12 +862,33 @@
       gap: 10px;
       margin-top: 10px;
     }
+    @media (max-width: 390px) {
+      header {
+        padding-left: 12px;
+        padding-right: 12px;
+        gap: 6px;
+      }
+      .brand {
+        font-size: 20px;
+        letter-spacing: .05em;
+      }
+      .brand em {
+        display: none;
+      }
+      .pill, .lang, .theme-toggle {
+        padding: 7px 8px;
+        font-size: 10px;
+      }
+      .theme-toggle {
+        min-width: 48px;
+      }
+    }
   </style>
 </head>
 <body>
   <main class="phone">
     <header>
-      <div class="brand"><span>8-0</span> DRAFT</div>
+      <div class="brand"><span>8-0</span><em> DRAFT GAME</em></div>
       <div class="pill" id="formationPill">-</div>
       <button class="lang" id="langBtn">TR</button>
       <button class="theme-toggle" id="themeBtn">DARK</button>
@@ -1083,7 +1114,9 @@
         ]
       }
     ];
-    const squads = Array.isArray(window.WORLD_CUP_SQUADS) && window.WORLD_CUP_SQUADS.length ? window.WORLD_CUP_SQUADS : fallbackSquads;
+    const sourceSquads = Array.isArray(window.WORLD_CUP_SQUADS) && window.WORLD_CUP_SQUADS.length ? window.WORLD_CUP_SQUADS : fallbackSquads;
+    const filteredSquads = sourceSquads.filter(squad => Number(squad.year) >= 1970);
+    const squads = filteredSquads.length ? filteredSquads : fallbackSquads;
 
     const formations = [
       { name: "4-4-2", slots: [["GK",50,90],["LB",18,72],["CB",39,76],["CB",61,76],["RB",82,72],["LM",17,47],["CM",40,51],["CM",60,51],["RM",83,47],["ST",40,18],["ST",60,18]] },
@@ -1150,6 +1183,45 @@
         att: ratings.att,
         scorers: scorers.length ? scorers : squad.players.slice(0, 8).map(player => shortName(player.name))
       };
+    }
+
+    function squadWeight(squad) {
+      const year = Number(squad.year) || 1970;
+      if (year >= 2022) return 10;
+      if (year >= 2010) return 8;
+      if (year >= 2002) return 6;
+      if (year >= 1994) return 3;
+      return 1;
+    }
+
+    function opponentWeight(opponent) {
+      const year = Number(String(opponent.name).match(/\d{4}/)?.[0]) || 1970;
+      if (year >= 2022) return 10;
+      if (year >= 2010) return 8;
+      if (year >= 2002) return 6;
+      if (year >= 1994) return 3;
+      return 1;
+    }
+
+    function weightedRandom(items, weightFn) {
+      const total = items.reduce((sum, item) => sum + Math.max(.1, weightFn(item)), 0);
+      let pick = Math.random() * total;
+      for (const item of items) {
+        pick -= Math.max(.1, weightFn(item));
+        if (pick <= 0) return item;
+      }
+      return items[items.length - 1];
+    }
+
+    function weightedSampleUnique(items, count, weightFn) {
+      const pool = [...items];
+      const picked = [];
+      while (pool.length && picked.length < count) {
+        const item = weightedRandom(pool, weightFn);
+        picked.push(item);
+        pool.splice(pool.indexOf(item), 1);
+      }
+      return picked;
     }
 
     let lang = "en";
@@ -1329,7 +1401,7 @@
         squad.players.some(player => !usedPlayers.has(playerKey(squad, player)) && openPositionsFor(player).length)
       );
       if (!playable.length) return null;
-      return playable[Math.floor(Math.random() * playable.length)];
+      return weightedRandom(playable, squadWeight);
     }
 
     function openSheet(squad) {
@@ -1469,8 +1541,7 @@
     }
 
     function buildTournamentGroups(ratings) {
-      const pool = [...opponents].sort(() => Math.random() - .5);
-      const picked = pool.slice(0, 47);
+      const picked = weightedSampleUnique(opponents, 47, opponentWeight);
       const groups = [];
       for (let i = 0; i < 12; i += 1) {
         const name = `Group ${String.fromCharCode(65 + i)}`;
@@ -2009,44 +2080,48 @@
 
     async function shareCard(platform) {
       if (!currentShareImageUrl) return;
-      const fallbackWindow = openFallbackWindow(platform);
-      const file = await dataUrlToFile(currentShareImageUrl, "8-0-world-cup-draft-card.png");
-      const sharePayload = {
-        title: "8-0 World Cup Draft Game",
-        text: currentShareText,
-        files: [file]
-      };
+      const encodedText = encodeURIComponent(currentShareText);
+      const encodedUrl = encodeURIComponent("https://8-0-game.local");
+      if (platform === "twitter") {
+        openExternalUrl(`twitter://post?message=${encodedText}%20${encodedUrl}`, `https://twitter.com/intent/tweet?text=${encodedText}&url=${encodedUrl}`);
+        return;
+      }
+      if (platform === "whatsapp") {
+        openExternalUrl(`whatsapp://send?text=${encodedText}%20${encodedUrl}`, `https://api.whatsapp.com/send?text=${encodedText}%20${encodedUrl}`);
+        return;
+      }
 
+      const file = await dataUrlToFile(currentShareImageUrl, "8-0-world-cup-draft-card.png");
       if (navigator.canShare && navigator.canShare({ files: [file] }) && navigator.share) {
         try {
-          await navigator.share(sharePayload);
+          await navigator.share({
+            title: "8-0 World Cup Draft Game",
+            text: currentShareText,
+            files: [file]
+          });
           return;
         } catch (error) {
           if (error && error.name === "AbortError") return;
         }
       }
 
-      const encodedText = encodeURIComponent(currentShareText);
-      const encodedUrl = encodeURIComponent("https://8-0-game.local");
-      if (platform === "twitter") {
-        navigateFallbackWindow(fallbackWindow, `https://twitter.com/intent/tweet?text=${encodedText}&url=${encodedUrl}`);
-      } else if (platform === "whatsapp") {
-        navigateFallbackWindow(fallbackWindow, `https://api.whatsapp.com/send?text=${encodedText}%20${encodedUrl}`);
-      } else {
-        downloadShareCard(currentShareImageUrl, platform);
-        if (fallbackWindow) fallbackWindow.close();
-        alert("Share card downloaded. Post the image to Instagram.");
+      downloadShareCard(currentShareImageUrl, platform);
+      alert("Share card downloaded. Post the image to Instagram.");
+    }
+
+    function openExternalUrl(url, fallback) {
+      const bridge = window.webkit?.messageHandlers?.eightZeroNative;
+      if (bridge) {
+        bridge.postMessage({ type: "openUrl", url, fallback });
+        return;
       }
-    }
 
-    function openFallbackWindow(platform) {
-      if (platform !== "twitter" && platform !== "whatsapp") return null;
-      return window.open("about:blank", "_blank", "noopener,noreferrer");
-    }
-
-    function navigateFallbackWindow(targetWindow, url) {
-      if (targetWindow) targetWindow.location = url;
-      else window.open(url, "_blank", "noopener,noreferrer");
+      window.location.href = url;
+      if (fallback) {
+        setTimeout(() => {
+          window.open(fallback, "_blank", "noopener,noreferrer");
+        }, 650);
+      }
     }
 
     async function dataUrlToFile(dataUrl, filename) {

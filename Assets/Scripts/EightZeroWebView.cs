@@ -7,6 +7,9 @@ using UnityEngine;
 public sealed class EightZeroWebView : MonoBehaviour
 {
     private const string GameRelativePath = "Game/index.html";
+    private Texture2D splashIcon;
+    private GUIStyle splashTitleStyle;
+    private GUIStyle splashBodyStyle;
 #if UNITY_EDITOR
     private GUIStyle titleStyle;
     private GUIStyle bodyStyle;
@@ -24,6 +27,10 @@ public sealed class EightZeroWebView : MonoBehaviour
     {
         Application.targetFrameRate = 60;
         Screen.sleepTimeout = SleepTimeout.NeverSleep;
+        if (Camera.main != null)
+        {
+            Camera.main.backgroundColor = new Color32(209, 212, 209, 255);
+        }
         StartCoroutine(OpenGameWhenReady());
     }
 
@@ -66,8 +73,56 @@ public sealed class EightZeroWebView : MonoBehaviour
         OpenGame();
     }
 
-#if UNITY_EDITOR
     private void OnGUI()
+    {
+#if UNITY_EDITOR
+        DrawEditorPreview();
+#else
+        DrawSplash();
+#endif
+    }
+
+    private void DrawSplash()
+    {
+        EnsureSplashStyles();
+
+        var iconSize = Mathf.Min(148, Screen.width * 0.34f);
+        var iconRect = new Rect((Screen.width - iconSize) * 0.5f, Screen.height * 0.34f, iconSize, iconSize);
+        if (splashIcon != null)
+        {
+            GUI.DrawTexture(iconRect, splashIcon, ScaleMode.ScaleToFit, true);
+        }
+
+        GUI.Label(new Rect(24, iconRect.yMax + 22, Screen.width - 48, 44), "Draft Game", splashTitleStyle);
+        GUI.Label(new Rect(24, iconRect.yMax + 62, Screen.width - 48, 28), "8-0 World Cup Draft", splashBodyStyle);
+    }
+
+    private void EnsureSplashStyles()
+    {
+        if (splashIcon == null)
+        {
+            splashIcon = Resources.Load<Texture2D>("SplashLogo");
+        }
+
+        splashTitleStyle ??= new GUIStyle(GUI.skin.label)
+        {
+            alignment = TextAnchor.MiddleCenter,
+            fontSize = Mathf.RoundToInt(Mathf.Min(34, Screen.width * 0.08f)),
+            fontStyle = FontStyle.Bold,
+            normal = { textColor = new Color32(71, 74, 74, 255) }
+        };
+
+        splashBodyStyle ??= new GUIStyle(GUI.skin.label)
+        {
+            alignment = TextAnchor.MiddleCenter,
+            fontSize = Mathf.RoundToInt(Mathf.Min(16, Screen.width * 0.04f)),
+            fontStyle = FontStyle.Bold,
+            normal = { textColor = new Color32(42, 57, 141, 255) }
+        };
+    }
+
+#if UNITY_EDITOR
+    private void DrawEditorPreview()
     {
         EnsureStyles();
 

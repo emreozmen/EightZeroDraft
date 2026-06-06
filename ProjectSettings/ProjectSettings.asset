@@ -13,7 +13,7 @@ PlayerSettings:
   useOnDemandResources: 0
   accelerometerFrequency: 60
   companyName: Eight Zero
-  productName: 8-0 Draft
+  productName: Draft Game
   defaultCursor: {fileID: 0}
   cursorHotspot: {x: 0, y: 0}
   m_SplashScreenBackgroundColor: {r: 0.81960785, g: 0.83137256, b: 0.81960785, a: 1}

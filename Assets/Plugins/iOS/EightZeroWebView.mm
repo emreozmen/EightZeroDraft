@@ -3,8 +3,31 @@
 #import <WebKit/WebKit.h>
 
 static WKWebView *EightZeroWebView = nil;
+static id EightZeroBridge = nil;
 
 static void EightZero_LoadUrlString(NSString *urlString, NSInteger attempt);
+static void EightZero_OpenExternalURL(NSString *primaryUrlString, NSString *fallbackUrlString);
+
+@interface EightZeroScriptBridge : NSObject <WKScriptMessageHandler>
+@end
+
+@implementation EightZeroScriptBridge
+- (void)userContentController:(WKUserContentController *)userContentController didReceiveScriptMessage:(WKScriptMessage *)message {
+    if (![message.body isKindOfClass:NSDictionary.class]) {
+        return;
+    }
+
+    NSDictionary *body = (NSDictionary *)message.body;
+    NSString *type = body[@"type"];
+    if (![type isEqualToString:@"openUrl"]) {
+        return;
+    }
+
+    NSString *url = body[@"url"];
+    NSString *fallback = body[@"fallback"];
+    EightZero_OpenExternalURL(url, fallback);
+}
+@end
 
 static UIViewController *EightZeroRootViewController(void) {
     UIWindow *window = UIApplication.sharedApplication.keyWindow;
@@ -71,6 +94,10 @@ static void EightZero_LoadUrlString(NSString *urlString, NSInteger attempt) {
         WKWebViewConfiguration *configuration = [[WKWebViewConfiguration alloc] init];
         configuration.allowsInlineMediaPlayback = YES;
         configuration.preferences.javaScriptCanOpenWindowsAutomatically = YES;
+        WKUserContentController *userContentController = [[WKUserContentController alloc] init];
+        EightZeroBridge = [[EightZeroScriptBridge alloc] init];
+        [userContentController addScriptMessageHandler:EightZeroBridge name:@"eightZeroNative"];
+        configuration.userContentController = userContentController;
 
         EightZeroWebView = [[WKWebView alloc] initWithFrame:root.view.bounds configuration:configuration];
         EightZeroWebView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
@@ -88,8 +115,30 @@ static void EightZero_LoadUrlString(NSString *urlString, NSInteger attempt) {
 extern "C" void EightZero_HideWebView(void) {
     dispatch_async(dispatch_get_main_queue(), ^{
         if (EightZeroWebView != nil) {
+            [EightZeroWebView.configuration.userContentController removeScriptMessageHandlerForName:@"eightZeroNative"];
             [EightZeroWebView removeFromSuperview];
             EightZeroWebView = nil;
+            EightZeroBridge = nil;
         }
+    });
+}
+
+static void EightZero_OpenExternalURL(NSString *primaryUrlString, NSString *fallbackUrlString) {
+    if (primaryUrlString.length == 0) {
+        return;
+    }
+
+    dispatch_async(dispatch_get_main_queue(), ^{
+        NSURL *primaryURL = [NSURL URLWithString:primaryUrlString];
+        NSURL *fallbackURL = fallbackUrlString.length > 0 ? [NSURL URLWithString:fallbackUrlString] : nil;
+        if (primaryURL == nil) {
+            return;
+        }
+
+        [UIApplication.sharedApplication openURL:primaryURL options:@{} completionHandler:^(BOOL success) {
+            if (!success && fallbackURL != nil) {
+                [UIApplication.sharedApplication openURL:fallbackURL options:@{} completionHandler:nil];
+            }
+        }];
     });
 }
