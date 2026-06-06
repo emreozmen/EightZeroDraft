@@ -1,4 +1,5 @@
 using System.IO;
+using System.Collections;
 using System.Runtime.InteropServices;
 using UnityEngine;
 
@@ -6,8 +7,10 @@ using UnityEngine;
 public sealed class EightZeroWebView : MonoBehaviour
 {
     private const string GameRelativePath = "Game/index.html";
+#if UNITY_EDITOR
     private GUIStyle titleStyle;
     private GUIStyle bodyStyle;
+#endif
 
 #if UNITY_IOS && !UNITY_EDITOR
     [DllImport("__Internal")]
@@ -21,14 +24,14 @@ public sealed class EightZeroWebView : MonoBehaviour
     {
         Application.targetFrameRate = 60;
         Screen.sleepTimeout = SleepTimeout.NeverSleep;
-        OpenGame();
+        StartCoroutine(OpenGameWhenReady());
     }
 
     private void OnApplicationPause(bool paused)
     {
         if (!paused)
         {
-            OpenGame();
+            StartCoroutine(OpenGameWhenReady());
         }
     }
 
@@ -44,10 +47,23 @@ public sealed class EightZeroWebView : MonoBehaviour
         var indexPath = Path.Combine(Application.streamingAssetsPath, GameRelativePath);
 
 #if UNITY_IOS && !UNITY_EDITOR
+        if (!File.Exists(indexPath))
+        {
+            Debug.LogError($"8-0 Draft missing game entrypoint: {indexPath}");
+            return;
+        }
+
         EightZero_ShowWebView(indexPath);
 #else
         Debug.Log($"8-0 Draft WebView wrapper ready: {indexPath}");
 #endif
+    }
+
+    private IEnumerator OpenGameWhenReady()
+    {
+        yield return null;
+        yield return new WaitForEndOfFrame();
+        OpenGame();
     }
 
 #if UNITY_EDITOR
